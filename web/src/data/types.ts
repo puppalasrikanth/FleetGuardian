@@ -8,7 +8,7 @@ export interface Agent {
   owner: string;
   team: string;
   model: string;
-  harnessId: string;
+  harnessId?: string;
   status: AgentStatus;
   trustScore: number; // 0-100
   risk: Risk;
@@ -68,7 +68,10 @@ export type VulnCategory =
   | "Unsafe tool execution"
   | "Dependency"
   | "Data exfiltration"
-  | "Excessive permissions";
+  | "Excessive permissions"
+  | "Insecure deserialization"
+  | "Insecure transport"
+  | "Injection";
 
 export type VulnStatus = "open" | "fixed" | "ignored";
 
@@ -87,13 +90,26 @@ export interface Vulnerability {
   fix: string;
 }
 
+export type HarnessSource =
+  | { kind: "github"; url: string; owner: string; repo: string; branch: string }
+  | { kind: "upload"; label: string }
+  | { kind: "local"; url: string; branch: string };
+
+export type ScanStatus = "queued" | "scanning" | "ready" | "error";
+
 export interface Harness {
   id: string;
   name: string;
-  repo: string;
+  source: HarnessSource;
+  repo: string; // display location
   language: string;
   framework: string;
   branch: string;
+  status: ScanStatus;
+  progress?: { done: number; total: number; phase: string };
+  error?: string;
+  fileCount: number;
+  linesScanned: number;
   lastScan: number;
   securityScore: number; // 0-100
   vulns: Vulnerability[];
