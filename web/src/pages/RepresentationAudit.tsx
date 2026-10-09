@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, GitBranch, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button, Card, PageHeader, Stat } from "../components/ui";
 import { useFleet } from "../data/store";
+import RuntimeAudit from "../components/RuntimeAudit";
+import RevisionASRDemo from "../components/RevisionASRDemo";
 
 type Row = {
   variant: string; trials: number; expected_trials: number; committed_asr: number;
@@ -29,6 +31,7 @@ const pp = (delta: number | null) => delta === null ? "—" : `${delta > 0 ? "+"
 
 export default function RepresentationAudit() {
   const { harnesses } = useFleet();
+  const [view, setView] = useState<"measured" | "revisions">("measured");
   const [report, setReport] = useState<AuditReport | null>(null);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -60,9 +63,15 @@ export default function RepresentationAudit() {
       <div className="mb-3 flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-brand-400"><GitBranch className="h-4 w-4" /> SchemaShift / evaluation integrity</div>
       <PageHeader title="Does your ASR survive different tool wording?" subtitle="Representation-sensitive committed attack success rate, under a frozen policy and adversarial objective." actions={<Button onClick={() => setRevision((r) => r + 1)}><RefreshCw className="h-4 w-4" /> Reload evidence</Button>} />
       <p className="mb-6 text-lg text-slate-300">Clean Semgrep ≠ honest security score.</p>
-      {error && <Card className="mb-5 text-rose-300"><p role="alert">{error}</p></Card>}
-      {!report && !error && <Card>Loading validated audit evidence…</Card>}
-      {report && <>
+      <div className="mb-6 flex flex-wrap gap-2" role="group" aria-label="Evidence view">
+        <Button variant={view === "measured" ? "primary" : "secondary"} onClick={() => setView("measured")}>Measured evidence</Button>
+        <Button variant={view === "revisions" ? "primary" : "secondary"} onClick={() => setView("revisions")}>Revision demo · simulated</Button>
+      </div>
+      {view === "revisions" && <RevisionASRDemo />}
+      {view === "measured" && error && <Card className="mb-5 text-rose-300"><p role="alert">{error}</p></Card>}
+      {view === "measured" && !report && !error && <Card>Loading validated audit evidence…</Card>}
+      {view === "measured" && report && <>
+        <RuntimeAudit key={revision} traceSetHash={report.traceSetHash} />
         <div role="status" className={`mb-5 rounded-xl border p-4 text-sm ${measured ? "border-sky-700 bg-sky-950/40 text-sky-200" : "border-amber-700/60 bg-amber-950/30 text-amber-200"}`}>
           <strong>{measured ? "MEASURED REPLAY" : "ILLUSTRATIVE FIXTURES — no model was called"}</strong>
           <p className="mt-1">{measured ? "Descriptive results for this task and model configuration. An observed difference does not establish causality or generalize to other agents." : "These bars demonstrate the pipeline. No measured schema sensitivity or ASR reduction is claimed."} {!report.complete && "PARTIAL COHORT: inspect n/expected; this is not a completed matrix."}</p>
@@ -107,7 +116,7 @@ export default function RepresentationAudit() {
           </div>
           <div className="space-y-5">
             <Card><h2 className="font-semibold text-white">Frozen comparison</h2><dl className="mt-4 space-y-3 text-sm"><div><dt className="text-slate-500">Provider / model</dt><dd className="break-words">{report.provider} / {report.model}</dd></div><div><dt className="text-slate-500">Sampling</dt><dd>Temperature {report.temperature} · seed {report.seed ?? "not requested"}</dd></div><div><dt className="text-slate-500">Execution condition</dt><dd>{report.enforceBoundary ? "Boundary enforced" : "Reference executor; boundary not enforced"}</dd></div></dl><p className="mt-4 text-xs text-slate-400">Fixed policy, task, parameter contracts, tool order, executor, and grader. Only names and descriptions vary. Small trial counts do not establish stability.</p><details className="mt-4 text-xs text-slate-400"><summary className="cursor-pointer">Policy, objective &amp; provenance</summary><p className="mt-3">{report.policy}</p><p className="mt-3">{report.objective}</p><p className="mt-3 break-all">Trace-set SHA-256: {report.traceSetHash}</p><pre className="mt-3 whitespace-pre-wrap break-all">{JSON.stringify(report.schemas, null, 2)}</pre></details></Card>
-            <Card><h2 className="font-semibold text-white">Remediation status</h2><p className="mt-3 text-sm text-slate-300">Canonical wording: {canonical ? "recorded comparison available" : "awaiting trials"}.</p><p className="mt-3 text-sm text-slate-300">Execution boundary: {report.enforceBoundary ? "enabled in this cohort" : "separate evaluation required"}.</p><p className="mt-3 text-xs text-slate-500">Compare boundary-enforced runs separately. Never mix changed execution controls into a schema-only delta.</p></Card>
+            <Card><h2 className="font-semibold text-white">Remediation status</h2><p className="mt-3 text-sm text-slate-300">Canonical wording: {canonical ? "recorded comparison available" : "awaiting trials"}.</p><p className="mt-3 text-sm text-slate-300">Execution boundary: {report.enforceBoundary ? "enabled in this cohort" : "not enabled in the reference cohort"}.</p><p className="mt-3 text-xs text-slate-500">The automated audit panel shows a separate boundary cohort when published. Never mix changed execution controls into a schema-only delta.</p></Card>
             <Card><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-slate-400" /><h2 className="font-semibold text-white">Harness source trust</h2></div><p className="mt-3 text-sm text-slate-400">Semgrep reviews source code. {sourceScans.length ? `${sourceScans.length} Semgrep reports · ${findings} open findings.` : "No local Semgrep report."} Static findings do not measure ASR.</p><p className="mt-2 text-xs text-slate-500">The source-scan target and the records-assistant experiment are distinct; a clean frontend scan is not evidence about its agent contract.</p><Link to="/harnesses" className="mt-4 inline-flex items-center gap-1 text-sm text-brand-400">Open source module <ArrowRight className="h-3 w-3" /></Link></Card>
           </div>
         </div>
