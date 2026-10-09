@@ -13,6 +13,7 @@ export default function HarnessDetail() {
   const [filter, setFilter] = useState<VulnStatus | "all">("open");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState("");
 
   const h = harnesses.find((x) => x.id === id);
   if (!h) return <Empty>Repository not found. <Link to="/harnesses" className="text-brand-400">Back</Link></Empty>;
@@ -20,9 +21,12 @@ export default function HarnessDetail() {
   const used = agents.filter((a) => a.harnessId === h.id);
   const vulns = h.vulns.filter((v) => filter === "all" || v.status === filter).sort((a, b) => sevRank[a.severity] - sevRank[b.severity]);
 
-  const rescan = () => {
+  const rescan = async () => {
     setScanning(true);
-    setTimeout(() => { rescanHarness(h.id); setScanning(false); }, 1500);
+    setError("");
+    try { await rescanHarness(h.id); }
+    catch (e) { setError(e instanceof Error ? e.message : "Scan failed; previous results retained."); }
+    finally { setScanning(false); }
   };
 
   return (
@@ -34,6 +38,13 @@ export default function HarnessDetail() {
         actions={<Button onClick={rescan} disabled={scanning}><RefreshCw className={`h-4 w-4 ${scanning ? "animate-spin" : ""}`} /> {scanning ? "Scanning…" : "Rescan"}</Button>}
       />
 
+      {error && <p role="alert" className="mb-4 text-sm text-rose-300">{error} Previous results are unchanged.</p>}
+      <Card className="mb-4 text-sm text-slate-400">
+        {h.scan ? <><p>Semgrep {h.scan.version} · {h.scan.filesScanned} files · {h.scan.scope}</p>
+          <p className="mt-1 break-all font-mono text-xs">Base commit: {h.scan.commit}<br />Source snapshot: {h.scan.snapshotSha256}<br />Rules: {h.scan.rulesSha256}</p>
+          <p className="mt-2">Findings require review. A clean scan is not proof of security. Triage is local to this session; rescanning reopens detected findings.</p></>
+          : "Demo fixture — these findings were not produced by a live scan."}
+      </Card>
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           <div className="flex gap-1">
@@ -68,7 +79,7 @@ export default function HarnessDetail() {
                     <p className="mt-1 text-sm text-slate-300">{v.fix}</p>
                     <div className="mt-2 font-mono text-xs text-slate-500">rule: {v.ruleId}</div>
                     <div className="mt-4 flex gap-2">
-                      {v.status !== "fixed" && <Button variant="primary" onClick={() => setVulnStatus(h.id, v.id, "fixed")}>Mark fixed</Button>}
+                      {v.status !== "fixed" && <Button variant="primary" onClick={() => setVulnStatus(h.id, v.id, "fixed")}>Mark fixed (unverified)</Button>}
                       {v.status !== "ignored" && <Button variant="ghost" onClick={() => setVulnStatus(h.id, v.id, "ignored")}>Ignore</Button>}
                       {v.status !== "open" && <Button variant="ghost" onClick={() => setVulnStatus(h.id, v.id, "open")}>Reopen</Button>}
                     </div>
@@ -81,9 +92,9 @@ export default function HarnessDetail() {
 
         <div className="space-y-4">
           <Card>
-            <div className="text-sm text-slate-400">Security score</div>
+            <div className="text-sm text-slate-400">Scan heuristic (0–100)</div>
             <div className={`mt-1 text-4xl font-semibold ${h.securityScore >= 80 ? "text-emerald-400" : h.securityScore >= 60 ? "text-amber-400" : "text-rose-400"}`}>{h.securityScore}</div>
-            <p className="mt-2 text-xs text-slate-500">Based on open findings, their severity and how long they have been open.</p>
+            <p className="mt-2 text-xs text-slate-500">100 minus 20 per high, 10 per medium, and 3 per low finding, with a floor of zero. This is a scan summary, not a security guarantee. Demo fixture scores are illustrative.</p>
           </Card>
           <Card>
             <h2 className="mb-3 font-medium text-white">Agents running this code</h2>

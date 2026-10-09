@@ -29,7 +29,7 @@ export default function Overview() {
 
   return (
     <>
-      <PageHeader title="Fleet overview" subtitle="Every agent, every action, held to your rules — in real time." />
+      <PageHeader title="Runtime fleet simulation" subtitle="Synthetic activity and operator controls. These demo trust scores and incidents are not measured ASR or a Pi integration." />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Stat label="Fleet trust score" value={fleetTrust} hint="avg across all agents" tone={fleetTrust >= 80 ? "good" : fleetTrust >= 65 ? "warn" : "bad"} icon={<ShieldCheck className="h-4 w-4" />} />

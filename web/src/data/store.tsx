@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ActivityEvent, Agent, AgentStatus, Harness, Incident, IncidentStatus, Policy, VulnStatus } from "./types";
+import { scanSource } from "./sourceApi";
 import {
   agents as seedAgents,
   harnesses as seedHarnesses,
@@ -25,8 +26,8 @@ interface FleetState {
   togglePolicy: (id: string) => void;
   upsertPolicy: (p: Policy) => void;
   setVulnStatus: (harnessId: string, vulnId: string, status: VulnStatus) => void;
-  registerHarness: (h: Omit<Harness, "id" | "vulns" | "securityScore" | "lastScan">) => void;
-  rescanHarness: (id: string) => void;
+  registerHarness: (h: Pick<Harness, "name" | "repo" | "language" | "framework" | "branch">) => Promise<void>;
+  rescanHarness: (id: string) => Promise<void>;
 }
 
 const Ctx = createContext<FleetState | null>(null);
@@ -85,12 +86,20 @@ export function FleetProvider({ children }: { children: ReactNode }) {
         setHarnesses((list) =>
           list.map((h) => (h.id === hid ? { ...h, vulns: h.vulns.map((v) => (v.id === vid ? { ...v, status } : v)) } : h)),
         ),
-      registerHarness: (h) =>
+      registerHarness: async (h) => {
+        const report = await scanSource(h);
         setHarnesses((list) => [
-          { ...h, id: `h-${Date.now()}`, vulns: [], securityScore: 100, lastScan: Date.now() },
-          ...list,
-        ]),
-      rescanHarness: (id) => setHarnesses((list) => list.map((h) => (h.id === id ? { ...h, lastScan: Date.now() } : h))),
+          { ...h, ...report, id: crypto.randomUUID() },
+          ...list.filter((x) => x.repo !== h.repo || x.branch !== h.branch),
+        ]);
+      },
+      rescanHarness: async (id) => {
+        const h = harnesses.find((x) => x.id === id);
+        if (!h) throw new Error("Repository not found.");
+        const report = await scanSource(h);
+        // A fresh scan reopens detected findings; local triage is not evidence of a code fix.
+        setHarnesses((list) => list.map((x) => x.id === id ? { ...x, ...report } : x));
+      },
     }),
     [agents, policies, incidents, activity, harnesses, trustTrend, live],
   );

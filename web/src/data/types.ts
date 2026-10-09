@@ -97,4 +97,14 @@ export interface Harness {
   lastScan: number;
   securityScore: number; // 0-100
   vulns: Vulnerability[];
+  scan?: {
+    source: "semgrep";
+    version: string;
+    commit: string;
+    branch: string;
+    filesScanned: number;
+    snapshotSha256: string;
+    rulesSha256: string;
+    scope: string;
+  };
 }
