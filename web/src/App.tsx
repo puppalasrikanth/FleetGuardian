@@ -6,6 +6,7 @@ import Agents from "./pages/Agents";
 import HarnessDetail from "./pages/HarnessDetail";
 import Harnesses from "./pages/Harnesses";
 import Incidents from "./pages/Incidents";
+import RepresentationAudit from "./pages/RepresentationAudit";
 import Overview from "./pages/Overview";
 import Policies from "./pages/Policies";
 
@@ -15,7 +16,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            <Route index element={<Overview />} />
+            <Route index element={<RepresentationAudit />} />
+            <Route path="runtime" element={<Overview />} />
             <Route path="agents" element={<Agents />} />
             <Route path="agents/:id" element={<AgentDetail />} />
             <Route path="incidents" element={<Incidents />} />

@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useFleet } from "../data/store";
 import type { Harness, Risk } from "../data/types";
 import { Button, Card, PageHeader, Stat, timeAgo } from "../components/ui";
+import LocalRegister from "../components/LocalRegister";
 import { filesFromDrop, parseGitHubUrl } from "../scanner/sources";
 
 const sevOrder: Risk[] = ["critical", "high", "medium", "low"];
@@ -148,7 +149,7 @@ function RegisterModal({ onClose, initialTab }: { onClose: () => void; initialTa
 
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" disabled={!canSubmit}>Register & scan</Button>
+          <Button type="submit" variant="primary" disabled={!canSubmit}>Register &amp; scan</Button>
         </div>
       </form>
     </div>
@@ -159,6 +160,7 @@ function RegisterModal({ onClose, initialTab }: { onClose: () => void; initialTa
 
 export default function Harnesses() {
   const { harnesses, agents } = useFleet();
+  const [localOpen, setLocalOpen] = useState(false);
   const [modal, setModal] = useState<null | "github" | "upload">(null);
   const ready = harnesses.filter((h) => h.status === "ready");
   const allOpen = ready.flatMap((h) => h.vulns).filter((v) => v.status === "open");
@@ -167,9 +169,9 @@ export default function Harnesses() {
   return (
     <>
       <PageHeader
-        title="Agent source code"
-        subtitle="Register the code behind each agent and catch agent-specific vulnerabilities before they reach production."
-        actions={harnesses.length > 0 && <Button variant="primary" onClick={() => setModal("github")}><Plus className="h-4 w-4" /> Register repository</Button>}
+        title="Harness source trust"
+        subtitle="Review source with browser rules or local Semgrep. Static findings do not measure representation-sensitive ASR."
+        actions={<><Button onClick={() => setLocalOpen(true)}>Local Semgrep scan</Button><Button variant="primary" onClick={() => setModal("github")}><Plus className="h-4 w-4" /> Register repository</Button></>}
       />
 
       {harnesses.length === 0 ? (
@@ -196,7 +198,7 @@ export default function Harnesses() {
         <>
           <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat label="Registered repos" value={harnesses.length} />
-            <Stat label="Avg security score" value={ready.length ? avg : "—"} tone={!ready.length ? "default" : avg >= 80 ? "good" : avg >= 60 ? "warn" : "bad"} />
+            <Stat label="Avg source heuristic" value={ready.length ? avg : "—"} tone={!ready.length ? "default" : avg >= 80 ? "good" : avg >= 60 ? "warn" : "bad"} />
             <Stat label="Open vulnerabilities" value={allOpen.length} tone={allOpen.length ? "warn" : "good"} />
             <Stat label="Critical" value={allOpen.filter((v) => v.severity === "critical").length} tone={allOpen.some((v) => v.severity === "critical") ? "bad" : "good"} />
           </div>
@@ -220,6 +222,7 @@ export default function Harnesses() {
                           <span className="truncate">{h.name}</span>
                         </div>
                         <div className="truncate text-xs text-slate-500">{h.repo}</div>
+                        <div className="mt-1 text-xs text-sky-300">{h.source.kind === "local" ? "Local Semgrep" : "Browser static rules"}</div>
                         {h.status === "ready" && (
                           <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
                             <span>{h.framework}</span><span>{h.language}</span>
@@ -238,7 +241,7 @@ export default function Harnesses() {
                             const n = open.filter((v) => v.severity === s).length;
                             return n ? <span key={s} className="flex items-center gap-1.5 text-slate-300"><span className={`h-2 w-2 rounded-full ${sevDot[s]}`} />{n} {s}</span> : null;
                           })}
-                          {!open.length && <span className="text-emerald-300">No open vulnerabilities</span>}
+                          {!open.length && <span className="text-emerald-300">No open findings under these rules</span>}
                         </div>
                       )}
                     </div>
@@ -253,6 +256,7 @@ export default function Harnesses() {
           </div>
         </>
       )}
+      {localOpen && <LocalRegister onClose={() => setLocalOpen(false)} />}
       {modal && <RegisterModal initialTab={modal} onClose={() => setModal(null)} />}
     </>
   );

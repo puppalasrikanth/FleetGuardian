@@ -12,6 +12,8 @@ import {
 import { detectStack, mergeTriage, scanFiles, securityScore, type SourceFile } from "../scanner/scan";
 import { fetchGitHubRepo, parseGitHubUrl, readUploads } from "../scanner/sources";
 
+import { scanSource } from "./sourceApi";
+
 interface FleetState {
   agents: Agent[];
   policies: Policy[];
@@ -26,6 +28,9 @@ interface FleetState {
   togglePolicy: (id: string) => void;
   upsertPolicy: (p: Policy) => void;
   setVulnStatus: (harnessId: string, vulnId: string, status: VulnStatus) => void;
+  /** Run Semgrep on a configured local checkout. */
+  registerHarness: (h: Pick<Harness, "name" | "repo" | "language" | "framework" | "branch">) => Promise<void>;
+  rescanHarness: (id: string) => Promise<void>;
   /** Register a GitHub repository and start scanning it. Returns the new id. */
   registerGitHub: (input: { url: string; name?: string; branch?: string; token?: string }) => string;
   /** Register uploaded source (zip, folder or files) and start scanning it. Returns the new id. */
@@ -198,10 +203,29 @@ export function FleetProvider({ children }: { children: ReactNode }) {
           list.map((h) => {
             if (h.id !== hid) return h;
             const vulns = h.vulns.map((v) => (v.id === vid ? { ...v, status } : v));
-            return { ...h, vulns, securityScore: securityScore(vulns) };
+            return { ...h, vulns, securityScore: h.scan ? h.securityScore : securityScore(vulns) };
           }),
         ),
 
+      registerHarness: async (h) => {
+        const report = await scanSource(h);
+        const entry: Harness = {
+          ...h, ...report, id: crypto.randomUUID(), source: { kind: "local", url: h.repo, branch: h.branch },
+          status: "ready", fileCount: report.scan?.filesScanned ?? 0, linesScanned: 0,
+        };
+        setHarnesses((list) => [entry, ...list]);
+      },
+      rescanHarness: async (id) => {
+        const h = harnessesRef.current.find((x) => x.id === id);
+        if (!h || h.source.kind !== "local") return;
+        patch(id, { status: "scanning", error: undefined, progress: { done: 0, total: 1, phase: "Semgrep" } });
+        try {
+          const report = await scanSource(h);
+          patch(id, { ...report, status: "ready", progress: undefined, fileCount: report.scan?.filesScanned ?? 0 });
+        } catch (error) {
+          patch(id, { status: "error", progress: undefined, error: `${error instanceof Error ? error.message : "Scan failed."} Previous results retained.` });
+        }
+      },
       registerGitHub: ({ url, name, branch, token }) => {
         const p = parseGitHubUrl(url);
         const id = `h-${Date.now().toString(36)}`;
@@ -232,7 +256,7 @@ export function FleetProvider({ children }: { children: ReactNode }) {
       },
       linkAgent: (agentId, harnessId) => setAgents((list) => list.map((a) => (a.id === agentId ? { ...a, harnessId } : a))),
     }),
-    [agents, policies, incidents, activity, harnesses, trustTrend, live, runGitHubScan, runUploadScan],
+    [agents, policies, incidents, activity, harnesses, trustTrend, live, runGitHubScan, runUploadScan, patch],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -4,17 +4,18 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useFleet } from "../data/store";
 
 const nav = [
-  { to: "/", label: "Fleet overview", icon: LayoutDashboard, end: true },
+  { to: "/", label: "Representation ASR", icon: LayoutDashboard, end: true },
+  { to: "/runtime", label: "Runtime demo", icon: ShieldAlert },
   { to: "/agents", label: "Agents", icon: Bot },
   { to: "/incidents", label: "Incidents", icon: ShieldAlert },
   { to: "/policies", label: "Policies & guardrails", icon: ScrollText },
-  { to: "/harnesses", label: "Source code", icon: Code2 },
+  { to: "/harnesses", label: "Harness source trust", icon: Code2 },
 ];
 
 export default function Layout() {
   const { incidents, live, setLive, harnesses } = useFleet();
   const openIncidents = incidents.filter((i) => i.status === "open").length;
-  const openVulns = harnesses.flatMap((h) => h.vulns).filter((v) => v.status === "open").length;
+  const openVulns = harnesses.filter((h) => h.scan).flatMap((h) => h.vulns).filter((v) => v.status === "open").length;
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-200">
@@ -25,7 +26,7 @@ export default function Layout() {
           </div>
           <div>
             <div className="font-semibold text-white">FleetGuardian</div>
-            <div className="text-xs text-slate-500">Trust layer for AI agents</div>
+            <div className="text-xs text-slate-500">Is your security score honest?</div>
           </div>
         </div>
         <nav className="flex flex-1 flex-col gap-1">
@@ -58,7 +59,7 @@ export default function Layout() {
         >
           <span className="flex items-center gap-2">
             <span className={clsx("h-2 w-2 rounded-full", live ? "animate-pulse bg-emerald-400" : "bg-slate-600")} />
-            {live ? "Live monitoring" : "Monitoring paused"}
+            {live ? "Runtime simulation" : "Simulation paused"}
           </span>
           {live ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
         </button>

@@ -92,7 +92,8 @@ export interface Vulnerability {
 
 export type HarnessSource =
   | { kind: "github"; url: string; owner: string; repo: string; branch: string }
-  | { kind: "upload"; label: string };
+  | { kind: "upload"; label: string }
+  | { kind: "local"; url: string; branch: string };
 
 export type ScanStatus = "queued" | "scanning" | "ready" | "error";
 
@@ -112,4 +113,14 @@ export interface Harness {
   lastScan: number;
   securityScore: number; // 0-100
   vulns: Vulnerability[];
+  scan?: {
+    source: "semgrep";
+    version: string;
+    commit: string;
+    branch: string;
+    filesScanned: number;
+    snapshotSha256: string;
+    rulesSha256: string;
+    scope: string;
+  };
 }

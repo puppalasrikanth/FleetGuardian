@@ -11,7 +11,7 @@ const sevRank: Record<Risk, number> = { critical: 0, high: 1, medium: 2, low: 3 
 export default function HarnessDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { harnesses, agents, setVulnStatus, rescanGitHub, uploadNewVersion, removeHarness, linkAgent } = useFleet();
+  const { harnesses, agents, setVulnStatus, rescanHarness, rescanGitHub, uploadNewVersion, removeHarness, linkAgent } = useFleet();
   const [filter, setFilter] = useState<VulnStatus | "all">("open");
   const [sev, setSev] = useState<Risk | "all">("all");
   const [cat, setCat] = useState<VulnCategory | "all">("all");
@@ -46,7 +46,9 @@ export default function HarnessDetail() {
         subtitle={[h.repo, h.status === "ready" && `${h.framework} · ${h.language}`, h.source.kind === "github" && `branch ${h.branch}`, h.status === "ready" && `scanned ${timeAgo(h.lastScan)}`].filter(Boolean).join(" · ")}
         actions={
           <>
-            {h.source.kind === "github" ? (
+            {h.source.kind === "local" ? (
+              <Button onClick={() => void rescanHarness(h.id)} disabled={busy}><RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />{busy ? "Scanning…" : "Rescan"}</Button>
+            ) : h.source.kind === "github" ? (
               <Button onClick={() => rescanGitHub(h.id, token || undefined)} disabled={busy}><RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} /> {busy ? "Scanning…" : "Rescan"}</Button>
             ) : (
               <Button onClick={() => setShowReupload((v) => !v)} disabled={busy}><Upload className="h-4 w-4" /> Upload new version</Button>
@@ -59,6 +61,14 @@ export default function HarnessDetail() {
         }
       />
 
+      <Card className="mb-4 text-sm text-slate-400">
+        {h.source.kind === "local" ? <>
+          <p>Local Semgrep{h.scan ? ` ${h.scan.version} · ${h.scan.filesScanned} files · ${h.scan.scope}` : " — no completed report"}</p>
+          {h.scan && <p className="mt-2 break-all font-mono text-xs">Base commit: {h.scan.commit}<br />Source snapshot: {h.scan.snapshotSha256}<br />Rules: {h.scan.rulesSha256}</p>}
+          <p className="mt-2">Source snippets are omitted. Marking fixed is unverified triage; a Semgrep rescan reopens detected findings.</p>
+        </> : <p>Browser static rules · {h.source.kind === "github" ? "GitHub source" : "Uploaded source"}. These findings are not Semgrep results.</p>}
+        <p className="mt-2">Source findings do not measure ASR. A clean scan is not proof of security. Results and triage are saved in this browser.</p>
+      </Card>
       {confirmDelete && (
         <Card className="mb-4 border-rose-500/40">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -147,7 +157,7 @@ export default function HarnessDetail() {
                     <p className="mt-1 text-sm text-slate-300">{v.fix}</p>
                     <div className="mt-2 font-mono text-xs text-slate-500">rule: {v.ruleId}</div>
                     <div className="mt-4 flex gap-2">
-                      {v.status !== "fixed" && <Button variant="primary" onClick={() => setVulnStatus(h.id, v.id, "fixed")}>Mark fixed</Button>}
+                      {v.status !== "fixed" && <Button variant="primary" onClick={() => setVulnStatus(h.id, v.id, "fixed")}>Mark fixed (unverified)</Button>}
                       {v.status !== "ignored" && <Button variant="ghost" onClick={() => setVulnStatus(h.id, v.id, "ignored")}>Ignore (false positive)</Button>}
                       {v.status !== "open" && <Button variant="ghost" onClick={() => setVulnStatus(h.id, v.id, "open")}>Reopen</Button>}
                     </div>
@@ -156,7 +166,7 @@ export default function HarnessDetail() {
               </Card>
             );
           }) : (
-            <Empty>{h.status === "ready" ? (h.vulns.length ? "No findings match these filters." : "No vulnerabilities found. Nice work.") : busy ? "Scanning…" : "No results yet."}</Empty>
+            <Empty>{h.status === "ready" ? (h.vulns.length ? "No findings match these filters." : "No findings under these rules. This is not a security guarantee.") : busy ? "Scanning…" : "No results yet."}</Empty>
           )}
         </div>
 
@@ -165,8 +175,8 @@ export default function HarnessDetail() {
             <div className="flex items-center gap-4">
               {h.status === "ready" ? <ScoreRing score={h.securityScore} size={64} /> : null}
               <div>
-                <div className="text-sm text-slate-400">Security score</div>
-                <p className="mt-1 text-xs text-slate-500">100 minus a penalty per open finding (critical 25, high 12, medium 5, low 1).</p>
+                <div className="text-sm text-slate-400">Source heuristic</div>
+                <p className="mt-1 text-xs text-slate-500">{h.scan ? "Scan-time heuristic: 100 minus 20 per high, 10 per medium, and 3 per low finding; floor zero. Triage does not change this snapshot." : "100 minus a penalty per open browser-rule finding (critical 25, high 12, medium 5, low 1)."}</p>
               </div>
             </div>
             {h.status === "ready" && (
@@ -179,7 +189,7 @@ export default function HarnessDetail() {
                 ))}
               </div>
             )}
-            {h.status === "ready" && <div className="mt-3 text-xs text-slate-500">{h.fileCount} files · {h.linesScanned.toLocaleString()} lines scanned</div>}
+            {h.status === "ready" && <div className="mt-3 text-xs text-slate-500">{h.fileCount} files{h.source.kind !== "local" && ` · ${h.linesScanned.toLocaleString()} lines scanned`}</div>}
           </Card>
 
           <Card>
