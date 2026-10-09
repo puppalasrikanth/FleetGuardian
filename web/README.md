@@ -7,9 +7,9 @@ The control room for FleetGuardian — the trust layer every AI agent fleet need
 - **Agents** – registry with search/filters; per-agent detail with timeline, permissions, guardrails, pause/quarantine
 - **Incidents** – violation queue with interventions: warn, pause, quarantine, approve, resolve
 - **Policies & guardrails** – enable/disable rules, create new guardrails scoped to all or selected agents
-- **Source code** – register agent harness repos (like agents) and triage agent-specific vulnerabilities
+- **Source code** – register an agent's code from a GitHub repo (public, or private with a read-only token) or by uploading a .zip, a folder or files. It is scanned in the browser with agent-security rules (`src/scanner/rules.ts`): hardcoded LLM/cloud keys, shell/eval on model output, untrusted content in system prompts, unrestricted outbound POSTs, wildcard permissions and disabled approvals, unsafe deserialization, SQL string building, disabled TLS, unpinned deps. Results and triage are saved in the browser (localStorage); tokens are never saved.
 
-Data is realistic mock data with a live simulator (`src/data/mock.ts`, `src/data/store.tsx`), ready to be swapped for a real API.
+Agents, incidents and policies are still sample data with a live simulator (`src/data/mock.ts`), ready to be swapped for a real API.
 
 ## Run locally
 ```bash
